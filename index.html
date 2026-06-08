@@ -8,7 +8,7 @@
     <link rel="shortcut icon" href="/favicon.ico">
     <meta property="og:title" content="DecailContainment: Estadisticas">
     <meta property="og:description" content="Estadísticas en tiempo real de DecailContainment.">
-    <meta property="og:image" content="http://37.114.51.82/favicon.png">
+    <meta property="og:image" content="favicon.png">
     <meta name="theme-color" content="#00df34">
     <title>--/-- DecailContainment</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -489,8 +489,11 @@
 
     <script>
         (async function () {
+			// Configuración de hosts externos (cambiar según despliegue)
+			const STORAGE_URL = location.hostname;     // IP o dominio para el storage y API (mismo puerto HTTP)
+			
             const WS_URL = `ws://${location.hostname}:25551`;
-            const PALETTE = ['#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6', '#1abc9c', '#e67e22', '#3498db', '#e84393'];
+            const PALETTE = ['#2ecc71', '#0a47ff', '#f1c40f', '#9b59b6', '#1abc9c', '#e67e22', '#3498db', '#e84393'];
             const MIN_PLAYERS = 1;
 
             Chart.register(ChartZoom);
@@ -539,7 +542,7 @@
                     const year = date.getFullYear();
                     const month = String(date.getMonth() + 1).padStart(2, '0');
                     const day = String(date.getDate()).padStart(2, '0');
-                    const filePath = `/storage/${serverId}/${year}-${month}/${year}-${month}-${day}.json`;
+                    const filePath = `http://${STORAGE_URL}/storage/${serverId}/${year}-${month}/${year}-${month}-${day}.json`;
                     const isToday = date.getFullYear() === now.getFullYear() &&
                         date.getMonth() === now.getMonth() &&
                         date.getDate() === now.getDate();
@@ -1244,7 +1247,7 @@
               if (!pendingPlayersJsonPromise) {
                 pendingPlayersJsonPromise = (async () => {
                   try {
-                    const res = await fetch(`/storage/players.json`);
+                    const res = await fetch(`http://${STORAGE_URL}/storage/players.json`);
                     if (!res.ok) throw new Error();
                     localPlayerNames = await res.json();
                   } catch {
