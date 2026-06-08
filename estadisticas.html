@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <meta property="og:title" content="DecailContainment: Estadisticas">
+    <meta property="og:description" content="Estadísticas en tiempo real de DecailContainment.">
+    <meta property="og:image" content="favicon.png">
+    <meta name="theme-color" content="#00df34">
+    <title>--/-- DecailContainment</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <style>
+        :root {
+            --bg: #0d0f13;
+            --surface: #161922;
+            --surface2: #1c1f2b;
+            --border: #2a2d39;
+            --text: #e0e0e0;
+            --text2: #a0a4b0;
+            --radius: 14px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --font: 'Segoe UI', 'Inter', system-ui, sans-serif;
+            --mono: 'JetBrains Mono', 'Consolas', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at 20% 20%, rgba(46, 204, 113, 0.03) 0%, transparent 55%),
+                radial-gradient(ellipse at 75% 60%, rgba(241, 196, 15, 0.03) 0%, transparent 55%),
+                radial-gradient(ellipse at 50% 85%, rgba(231, 76, 60, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 20px 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .header-left h1 {
+            font-size: 1.7rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-left h1 .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent, #2ecc71);
+            box-shadow: 0 0 12px var(--accent);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 8px var(--accent)
+            }
+
+            50% {
+                box-shadow: 0 0 20px var(--accent), 0 0 32px rgba(46, 204, 113, 0.5)
+            }
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text2);
+            margin-top: 2px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .connection-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e74c3c;
+            display: inline-block;
+            transition: 0.3s;
+        }
+
+        .connection-dot.connected {
+            background: #2ecc71;
+            box-shadow: 0 0 8px #2ecc71;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            border-radius: 4px 0 0 4px;
+            background: var(--card-color);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 14px;
+        }
+
+        .server-name {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #fff;
+        }
+
+        .server-id {
+            font-size: 0.75rem;
+            color: var(--text2);
+            font-family: var(--mono);
+            background: var(--surface2);
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        .current-players {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1;
+            margin-bottom: 6px;
+            color: var(--card-color);
+        }
+
+        .current-label {
+            font-size: 0.8rem;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .player-list {
+            font-size: 0.78rem;
+            color: var(--text2);
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        .chart-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .chart-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface2);
+            overflow-x: auto;
+        }
+
+        .chart-tab {
+            flex: 1;
+            min-width: 100px;
+            padding: 14px 20px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text2);
+            border: none;
+            background: transparent;
+            transition: 0.2s;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .chart-tab:hover {
+            color: #d0d4e0;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .chart-tab.active {
+            color: #fff;
+            background: var(--surface);
+        }
+
+        .chart-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 20%;
+            width: 60%;
+            height: 3px;
+            border-radius: 3px 3px 0 0;
+            background: var(--tab-color);
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--surface2);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .chart-controls label {
+            font-size: 0.8rem;
+            color: var(--text2);
+            margin-right: 4px;
+        }
+
+        .chart-controls select,
+        .chart-controls button {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .chart-controls select:hover,
+        .chart-controls button:hover {
+            background: var(--surface2);
+            border-color: var(--accent, #2ecc71);
+        }
+
+        .chart-controls select:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .chart-body {
+            padding: 16px 12px 8px;
+            min-height: 400px;
+        }
+
+        .chart-body canvas {
+            width: 100%;
+            height: 420px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 28px;
+            font-size: 0.73rem;
+            color: #555;
+        }
+
+        .leaderboard-section {
+            margin-top: 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            box-shadow: var(--shadow);
+        }
+
+        .leaderboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .leaderboard-header h2 {
+            font-size: 1.1rem;
+        }
+
+        .leaderboard-header select {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+        }
+
+        .leaderboard-rank {
+            font-weight: 700;
+            color: #f1c40f;
+            width: 32px;
+        }
+
+        .leaderboard-name {
+            flex: 1;
+            font-weight: 600;
+        }
+
+        .leaderboard-time {
+            color: var(--text2);
+            font-size: 0.9rem;
+        }
+
+        .chart-controls label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chart-controls div,
+        .chart-controls div div {
+            display: flex;
+        }
+
+        @media (max-width:768px) {
+            .container {
+                padding: 14px 10px 30px;
+            }
+
+            .header-left h1 {
+                font-size: 1.3rem;
+            }
+
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+
+            .current-players {
+                font-size: 2.4rem;
+            }
+
+            .chart-body canvas {
+                height: 300px;
+            }
+
+            .chart-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-left">
+                <h1><span class="dot"></span>DecailContainment: Estadisticas</h1>
+            </div>
+            <div class="header-right">
+                <span id="lastUpdated" style="font-size:0.78rem;color:var(--text2);">Conectando…</span>
+                <span class="connection-dot" id="connDot" title="WebSocket"></span>
+            </div>
+        </header>
+
+        <div class="stats-row" id="statsRow"></div>
+
+        <div class="chart-section" id="chartSection" style="display:none;">
+            <div class="chart-tabs" id="chartTabs"></div>
+            <div class="chart-controls">
+                <div><label>📅 Rango:</label>
+                    <select id="rangeSelect">
+                        <option value="year">Último año</option>
+                        <option value="month">Último mes</option>
+                        <option value="week" selected>Última semana</option>
+                        <option value="day">Último día</option>
+                        <option value="hour">Última hora</option>
+                        <option value="15min">Últimos 15 minutos</option>
+                    </select>
+                </div>
+                <div><label>⏱️ Granularidad:</label>
+                    <select id="intervalSelect">
+                        <option value="day">Cada día</option>
+                        <option value="hour">Cada hora</option>
+                        <option value="15min" selected>Cada 15 minutos</option>
+                        <option value="exact">Exacto</option>
+                    </select>
+                </div>
+                <!-- NUEVO DROPDOWN: PICO / MEDIA (solo relevante para granularidad hora o día) -->
+                <div id="aggregationContainer" style="display: none;">
+                    <div class="aggregation-group">
+                        <label>📊 Agregacion:</label>
+                        <select id="aggregationSelect">
+                            <option value="max" selected>Pico (máximo)</option>
+                            <option value="avg">Media (promedio)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showPlayersToggle">
+                        Nombres de jugadores
+                    </label>
+                </div>
+                <label>crtl+scroll para hacer zoom</label>
+                <button id="refreshChartBtn" style="margin-left:auto; display:none">⟳ Actualizar gráfico</button>
+            </div>
+            <div class="chart-body"><canvas id="mainChart"></canvas></div>
+        </div>
+
+        <div class="leaderboard-section">
+            <div class="leaderboard-header">
+                <h2>Jugadores más activos</h2>
+
+                <select id="leaderboardRange">
+                    <option value="all">Total</option>
+                    <option value="month">Último mes</option>
+                    <option value="week">Última semana</option>
+                    <option value="day">Último día</option>
+                </select>
+            </div>
+
+            <div id="leaderboardList" class="leaderboard-list"></div>
+        </div>
+        <div class="footer">Creado desde 0 por Bertogim &bull; actualización en tiempo real</div>
+    </div>
+
+    <script>
+        (async function () {
+			// Configuración de hosts externos (cambiar según despliegue)
+			const STORAGE_URL = location.hostname;     // IP o dominio para el storage y API (mismo puerto HTTP)
+			
+            const WS_URL = `ws://${location.hostname}:25551`;
+            const PALETTE = ['#2ecc71', '#0a47ff', '#f1c40f', '#9b59b6', '#1abc9c', '#e67e22', '#3498db', '#e84393'];
+            const MIN_PLAYERS = 1;
+
+            Chart.register(ChartZoom);
+
+            let servers = [];
+            let allLogs = {};
+            let realtimeData = {};
+            let currentTab = null;
+            let chart = null;
+
+            // 🔥 NUEVO: Mapa serverId -> array de { time, players: string[] } con el estado histórico
+            let historicalPlayers = {};
+
+            // Elementos DOM
+            const $ = id => document.getElementById(id);
+            const statsRow = $('statsRow');
+            const chartTabs = $('chartTabs');
+            const chartSection = $('chartSection');
+            const lastUpdatedEl = $('lastUpdated');
+            const connDot = $('connDot');
+            const rangeSelect = $('rangeSelect');
+            const intervalSelect = $('intervalSelect');
+            const refreshChartBtn = $('refreshChartBtn');
+            const aggregationContainer = $('aggregationContainer');
+            const aggregationSelect = $('aggregationSelect');
+            const showPlayersToggle = $('showPlayersToggle');
+            let showPlayers = false;
+
+            function getColor(idx) { return PALETTE[idx % PALETTE.length]; }
+            function formatTime(ts) { return new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+
+            // --- Carga histórica desde /storage ---
+            async function loadHistoryFromStorage(serverId) {
+                const now = new Date();
+                const logs = [];
+
+                const inicio = new Date(2026, 4, 1);
+                const hoy = new Date();
+                const msPorDia = 1000 * 60 * 60 * 24;
+                const diasDesdeMayo1 = Math.floor((hoy - inicio) / msPorDia);
+                const CACHE_PREFIX = 'logs-cache:';
+                const CACHE_VERSION = 'v6';
+
+                for (let i = 0; i <= diasDesdeMayo1; i++) {
+                    const date = new Date(now.getTime() - i * 86400000);
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const filePath = `http://${STORAGE_URL}/storage/${serverId}/${year}-${month}/${year}-${month}-${day}.json`;
+                    const isToday = date.getFullYear() === now.getFullYear() &&
+                        date.getMonth() === now.getMonth() &&
+                        date.getDate() === now.getDate();
+                    const cacheKey = `${CACHE_PREFIX}${CACHE_VERSION}:${filePath}`;
+
+                    try {
+                        let data = null;
+                        if (!isToday) {
+                            const cached = localStorage.getItem(cacheKey);
+                            if (cached) data = JSON.parse(cached);
+                        }
+                        if (!data) {
+                            const res = await fetch(filePath);
+                            if (!res.ok) continue;
+                            data = await res.json();
+                            if (!isToday) localStorage.setItem(cacheKey, JSON.stringify(data));
+                        }
+                        if (data.logs && Array.isArray(data.logs)) {
+                            for (const log of data.logs) {
+                                logs.push({
+                                    time: log.time,
+                                    playersTotal: log.playersTotal,
+                                    joined: (log.joined || []).map(p => typeof p === 'object' ? p.id : p),
+                                    left: (log.left || []).map(p => typeof p === 'object' ? p.id : p)
+                                });
+                            }
+                        }
+                    } catch (e) { }
+                }
+                logs.sort((a, b) => a.time - b.time);
+                return logs;
+            }
+
+            function escapeHtml(str) {
+                return str
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            // 🔥 NUEVO: Construye el historial de jugadores conectados a partir de los logs,
+            // usando la misma lógica que el leaderboard (incluye reseteo total y validación de sesiones)
+            function buildPlayerHistory(serverId) {
+                const logs = allLogs[serverId] || [];
+                if (!logs.length) {
+                    historicalPlayers[serverId] = [];
+                    return;
+                }
+
+                const history = [];
+                const connectedPlayers = {}; // id -> joinTime (para validar sesiones)
+
+                for (const log of logs) {
+                    const time = log.time;
+
+                    // JOINS
+                    for (const player of (log.joined || [])) {
+                        const id = player?.id || player;
+                        // ignorar joins duplicados
+                        if (connectedPlayers[id]) continue;
+                        connectedPlayers[id] = time;
+                    }
+
+                    // Determinar lefts
+                    let leftPlayers = log.left;
+                    if (log.playersTotal === 0) {
+                        // Si el total es 0, todos los conectados se consideran left
+                        leftPlayers = Object.keys(connectedPlayers);
+                    }
+
+                    // LEFTS
+                    for (const player of (leftPlayers || [])) {
+                        const id = player?.id || player;
+                        const start = connectedPlayers[id];
+
+                        // si no existe join, ignorar
+                        if (typeof start !== "number") continue;
+
+                        const played = time - start;
+
+                        // sesiones corruptas (duración negativa, cero o >24h)
+                        if (
+                            !Number.isFinite(played) ||
+                            played <= 0 ||
+                            played > 1000 * 60 * 60 * 24 // max 24h
+                        ) {
+                            delete connectedPlayers[id];
+                            continue;
+                        }
+
+                        // Sesión válida, eliminamos al jugador del estado actual
+                        delete connectedPlayers[id];
+                    }
+
+                    // Guardar el estado después de procesar entradas y salidas
+                    history.push({
+                        time: time,
+                        players: Object.keys(connectedPlayers)
+                    });
+                }
+
+                historicalPlayers[serverId] = history;
+            }
+
+            // 🔥 NUEVO: Obtiene los jugadores conectados en un timestamp dado
+            function getPlayersAtTime(serverId, timestamp) {
+                const history = historicalPlayers[serverId];
+                if (!history || !history.length) return [];
+                // Búsqueda binaria del último estado ≤ timestamp
+                let lo = 0, hi = history.length - 1, best = null;
+                while (lo <= hi) {
+                    const mid = (lo + hi) >> 1;
+                    if (history[mid].time <= timestamp) {
+                        best = history[mid];
+                        lo = mid + 1;
+                    } else {
+                        hi = mid - 1;
+                    }
+                }
+                return best ? best.players : [];
+            }
+
+            // 🔥 NUEVO: Obtiene la unión de todos los jugadores conectados en un intervalo [startTime, endTime)
+            function getPlayersInInterval(serverId, startTime, endTime) {
+                const history = historicalPlayers[serverId];
+                if (!history || !history.length) return [];
+
+                const playersSet = new Set();
+
+                // Incluir jugadores que ya estaban conectados antes del intervalo
+                let lastBefore = null;
+                for (const entry of history) {
+                    if (entry.time <= startTime) {
+                        lastBefore = entry;
+                    } else {
+                        break;
+                    }
+                }
+                if (lastBefore) {
+                    for (const id of lastBefore.players) {
+                        playersSet.add(id);
+                    }
+                }
+
+                // Añadir todos los jugadores de los estados que caen dentro del intervalo
+                for (const entry of history) {
+                    if (entry.time > startTime && entry.time < endTime) {
+                        for (const id of entry.players) {
+                            playersSet.add(id);
+                        }
+                    } else if (entry.time >= endTime) {
+                        break;
+                    }
+                }
+
+                return Array.from(playersSet);
+            }
+
+            function filterByRange(logs, range) {
+                const now = Date.now();
+                let cutoff;
+                switch (range) {
+                    case 'year': cutoff = now - 12 * 30 * 24 * 3600 * 1000; break;
+                    case 'month': cutoff = now - 30 * 24 * 3600 * 1000; break;
+                    case 'week': cutoff = now - 7 * 24 * 3600 * 1000; break;
+                    case 'day': cutoff = now - 24 * 3600 * 1000; break;
+                    case 'hour': cutoff = now - 3600 * 1000; break;
+                    case '15min': cutoff = now - 15 * 60 * 1000; break;
+                    default: cutoff = now - 7 * 24 * 3600 * 1000;
+                }
+                return logs.filter(l => l.time >= cutoff);
+            }
+
+            function decimateLogs(logs, interval, aggregation = 'avg') {
+                if (!logs.length) return [];
+                logs = [...logs].sort((a, b) => a.time - b.time);
+
+                if (interval === 'exact') {
+                    return logs.map(l => ({
+                        x: l.time,
+                        y: l.playersTotal
+                    }));
+                }
+
+                const intervals = {
+                    '15min': 15 * 60 * 1000,
+                    'hour': 60 * 60 * 1000,
+                    'day': 24 * 60 * 60 * 1000
+                };
+                const bucketSize = intervals[interval];
+                if (!bucketSize) throw new Error(`Unsupported interval: ${interval}`);
+
+                const buckets = new Map();
+                for (const log of logs) {
+                    const bucketTime = Math.floor(log.time / bucketSize) * bucketSize;
+                    if (!buckets.has(bucketTime)) buckets.set(bucketTime, []);
+                    buckets.get(bucketTime).push(log.playersTotal);
+                }
+
+                const start = Math.floor(logs[0].time / bucketSize) * bucketSize;
+                const end = Math.floor(logs[logs.length - 1].time / bucketSize) * bucketSize;
+                const result = [];
+                let lastKnownValue = null;
+                let logIndex = 0;
+
+                for (let time = start; time <= end; time += bucketSize) {
+                    while (logIndex < logs.length && logs[logIndex].time < time + bucketSize) {
+                        lastKnownValue = logs[logIndex].playersTotal;
+                        logIndex++;
+                    }
+                    const values = buckets.get(time);
+                    if (!values) {
+                        if (lastKnownValue !== null) {
+                            result.push({ x: time, y: lastKnownValue });
+                            lastKnownValue = null;
+                        }
+                        continue;
+                    }
+                    let y;
+                    switch (aggregation) {
+                        case 'min': y = Math.min(...values); break;
+                        case 'max': y = Math.max(...values); break;
+                        case 'sum': y = values.reduce((a, b) => a + b, 0); break;
+                        case 'last': y = values[values.length - 1]; break;
+                        case 'avg':
+                        default: y = values.reduce((a, b) => a + b, 0) / values.length; break;
+                    }
+                    result.push({ x: time, y });
+                }
+                return result;
+            }
+
+            // 🔥 MODIFICADO: Ahora cada punto incluye la propiedad `players` con los IDs conectados en ese momento
+            function getChartData(serverId, range, interval) {
+                const logs = allLogs[serverId] || [];
+                const filtered = filterByRange(logs, range);
+                let aggregation = 'avg';
+                if (interval === '15min') aggregation = 'max';
+                if (interval === 'hour' || interval === 'day') {
+                    aggregation = aggregationSelect ? aggregationSelect.value : aggregation;
+                }
+                let points = decimateLogs(filtered, interval, aggregation);
+
+                // Para modo exacto y rangos cortos, interpolación segundo a segundo
+                const rt = realtimeData[serverId];
+                if (interval === 'exact') {
+                    const now = Date.now();
+                    let rangeMs = 15 * 60 * 1000;
+                    let continuee = true;
+                    switch (range) {
+                        case 'year': continuee = false; break;
+                        case 'month': continuee = false; break;
+                        case 'week': continuee = false; break;
+                        case 'day': continuee = false; break;
+                        case 'hour': rangeMs = 60 * 60 * 1000; break;
+                        case '15min': rangeMs = 15 * 60 * 1000; break;
+                    }
+                    if (continuee) {
+                        const start = now - rangeMs;
+                        const filled = [];
+                        let lastValue = 0;
+                        for (let j = 0; j < logs.length; j++) {
+                            if (logs[j].time <= start) lastValue = logs[j].playersTotal;
+                            else break;
+                        }
+                        let i = 0;
+                        while (i < filtered.length && filtered[i].time < start) i++;
+                        for (let t = start; t <= now; t += 1000) {
+                            while (i < filtered.length && filtered[i].time <= t) {
+                                lastValue = filtered[i].playersTotal;
+                                i++;
+                            }
+                            filled.push({ x: t, y: lastValue });
+                        }
+                        points = filled;
+                    }
+                }
+
+                // 🔥 Asignar jugadores históricos a cada punto
+                if (interval === 'exact') {
+                    // Para modo exacto: jugadores en ese instante concreto
+                    for (const point of points) {
+                        point.players = getPlayersAtTime(serverId, point.x);
+                    }
+                } else {
+                    // Para granularidades agrupadas: unión de jugadores en todo el intervalo
+                    const intervals = {
+                        '15min': 15 * 60 * 1000,
+                        'hour': 60 * 60 * 1000,
+                        'day': 24 * 60 * 60 * 1000
+                    };
+                    const bucketSize = intervals[interval];
+                    for (const point of points) {
+                        point.players = getPlayersInInterval(serverId, point.x, point.x + bucketSize);
+                    }
+                }
+                return points;
+            }
+
+            function updateIntervalOptionsByRange() {
+                const currentRange = rangeSelect.value;
+                const options = intervalSelect.options;
+                const currentVal = intervalSelect.value;
+                let needsChange = false;
+                for (let i = 0; i < options.length; i++) {
+                    const opt = options[i];
+                    if (currentRange === '15min') {
+                        if (opt.value === 'day' || opt.value === 'hour' || opt.value === '15min') {
+                            opt.disabled = true;
+                            if (currentVal === opt.value) needsChange = true;
+                        } else opt.disabled = false;
+                    } else if (currentRange === 'hour') {
+                        if (opt.value === 'day' || opt.value === 'hour' || opt.value === '15min') {
+                            opt.disabled = true;
+                            if (currentVal === opt.value) needsChange = true;
+                        } else opt.disabled = false;
+                    } else if (currentRange === 'day') {
+                        if (opt.value === 'hour' || opt.value === 'day') {
+                            opt.disabled = true;
+                            if (currentVal === 'hour') needsChange = true;
+                        } else opt.disabled = false;
+                    } else {
+                        opt.disabled = false;
+                    }
+                }
+                if (needsChange) {
+                    for (let i = 0; i < options.length; i++) {
+                        if (!options[i].disabled) {
+                            intervalSelect.value = options[i].value;
+                            break;
+                        }
+                    }
+                }
+                updateAggregationVisibility();
+                refreshChart();
+            }
+
+            function updateAggregationVisibility() {
+                const interval = intervalSelect.value;
+                aggregationContainer.style.display = (interval === 'hour' || interval === 'day') ? 'inline-flex' : 'none';
+            }
+
+            function updateChartRealtime() {
+                if (!chart || !currentTab) return;
+                if (intervalSelect.value !== 'exact') return;
+                if (rangeSelect.value !== '15min' && rangeSelect.value !== 'hour') return;
+                const range = rangeSelect.value;
+                const interval = intervalSelect.value;
+                if (currentTab === 'all') {
+                    chart.data.datasets.forEach((dataset, index) => {
+                        const server = servers[index];
+                        if (!server) return;
+                        dataset.data = getChartData(server.id, range, interval);
+                    });
+                } else {
+                    chart.data.datasets[0].data = getChartData(currentTab, range, interval);
+                }
+                const now = Date.now();
+                let windowSize = 24 * 60 * 60 * 1000;
+                switch (range) {
+                    case '15min': windowSize = 15 * 60 * 1000; break;
+                    case 'hour': windowSize = 60 * 60 * 1000; break;
+                    case 'day': windowSize = 24 * 60 * 60 * 1000; break;
+                    case 'week': windowSize = 7 * 24 * 60 * 60 * 1000; break;
+                    case 'month': windowSize = 30 * 24 * 60 * 60 * 1000; break;
+                    case 'year': windowSize = 12 * 30 * 24 * 60 * 60 * 1000; break;
+                }
+                chart.options.scales.x.min = now - windowSize;
+                chart.options.scales.x.max = now;
+                chart.update('none');
+            }
+
+            function buildUI(srvList) {
+                servers = srvList;
+                if (!servers.length) return;
+                servers.forEach((s, i) => { if (!s.color) s.color = getColor(i); });
+                statsRow.innerHTML = '';
+                servers.forEach(s => {
+                    const card = document.createElement('div');
+                    card.className = 'stat-card';
+                    card.style.setProperty('--card-color', s.color);
+                    card.id = `card-${s.id}`;
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <span class="server-name">${s.name || s.id}</span>
+                            <span class="server-id">ID ${s.id}</span>
+                        </div>
+                        <div class="current-players" id="players-${s.id}">—</div>
+                        <div style="display:none" class="current-label">Media ≥2: <span id="avg-${s.id}">—</span></div>
+                        <div class="player-list" id="list-${s.id}"></div>
+                    `;
+                    statsRow.appendChild(card);
+                });
+                chartTabs.innerHTML = '';
+                servers.forEach(s => {
+                    const btn = document.createElement('button');
+                    btn.className = 'chart-tab';
+                    btn.style.setProperty('--tab-color', s.color);
+                    btn.dataset.serverId = s.id;
+                    btn.textContent = s.name || s.id;
+                    btn.onclick = () => switchTab(s.id);
+                    chartTabs.appendChild(btn);
+                });
+                if (servers.length > 1) {
+                    const allBtn = document.createElement('button');
+                    allBtn.className = 'chart-tab';
+                    allBtn.style.setProperty('--tab-color', '#ffffff');
+                    allBtn.dataset.serverId = 'all';
+                    allBtn.textContent = '📊 Comparativa';
+                    allBtn.onclick = () => switchTab('all');
+                    chartTabs.appendChild(allBtn);
+                }
+                chartSection.style.display = 'block';
+                if (!currentTab) currentTab = servers[0].id;
+                switchTab(currentTab);
+            }
+
+            let finishedLoading = false
+
+            function updateCardsFromRealtime() {
+                servers.forEach(s => {
+                    const rt = realtimeData[s.id];
+                    const playersEl = $(`players-${s.id}`);
+                    const listEl = $(`list-${s.id}`);
+                    const avgEl = $(`avg-${s.id}`);
+                    if (!playersEl || !listEl || !avgEl) return;
+                    if (rt) {
+                        playersEl.textContent = rt.playersTotal || 0;
+                        const names = (rt.players || []).slice(0, 100).map(p => p.nickname).join(', ') || '—';
+                        listEl.textContent = `Jugadores: ${names}`;
+                    } else {
+                        playersEl.textContent = '—';
+                        listEl.textContent = 'Esperando datos...';
+                    }
+                    const logs = allLogs[s.id] || [];
+                    const weekLogs = filterByRange(logs, 'week');
+                    const vals = weekLogs.filter(l => l.playersTotal >= MIN_PLAYERS).map(l => l.playersTotal);
+                    const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+                    avgEl.textContent = avg !== null ? avg.toFixed(1) : '—';
+                });
+
+                // Actualizar título con jugadores totales/maximos
+                let totalPlayers = 0;
+                let totalMaxPlayers = 0;
+
+                servers.forEach(s => {
+                    const rt = realtimeData[s.id];
+
+                    if (rt) {
+                        totalPlayers += rt.playersTotal || 0;
+
+                        // usa maxPlayers del servidor si existe
+                        totalMaxPlayers += s.maxPlayers || 0;
+                    }
+                });
+
+                document.title = `${totalPlayers}/${totalMaxPlayers} DecailContainment`;
+            }
+
+            // 🔥 MODIFICADO: Tooltip usa los jugadores del punto histórico (ya resueltos por precarga)
+            function renderChart() {
+                const ctx = document.getElementById('mainChart')?.getContext('2d');
+                if (!ctx) return;
+                if (chart) { chart.destroy(); chart = null; }
+
+                const range = rangeSelect.value;
+                const interval = intervalSelect.value;
+                let datasets = [];
+
+                if (currentTab === 'all') {
+                    for (const s of servers) {
+                        const points = getChartData(s.id, range, interval);
+                        if (points.length === 0) continue;
+                        datasets.push({
+                            label: s.name || s.id,
+                            data: points,
+                            borderColor: s.color + '99',
+                            backgroundColor: 'transparent',
+                            borderWidth: 1.8,
+                            pointRadius: 0,
+                            stepped: true,
+                            tension: 0,
+                        });
+                    }
+                } else {
+                    const srv = servers.find(s => s.id === currentTab);
+                    const color = srv?.color || '#888';
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                    gradient.addColorStop(0, color + 'FF');
+                    gradient.addColorStop(1, color + '00');
+                    const points = getChartData(currentTab, range, interval);
+                    if (points.length) {
+                        datasets.push({
+                            label: 'Jugadores',
+                            data: points,
+                            borderColor: color,
+                            backgroundColor: gradient,
+                            fill: true,
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            stepped: true,
+                            tension: 0,
+                        });
+                    }
+                }
+
+                if (!datasets.length) {
+                    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                    ctx.fillStyle = '#888';
+                    ctx.font = '16px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Sin datos en el rango seleccionado.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                    return;
+                }
+
+                let xAxisOptions = {
+                    type: 'time',
+                    time: { tooltipFormat: 'dd MMM yyyy HH:mm' },
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { color: 'rgba(255,255,255,0.04)' }
+                };
+                if (range === 'week' || range === 'month' || range === 'year') {
+                    xAxisOptions.time.unit = 'day';
+                    xAxisOptions.time.displayFormats = { day: 'dd MMM' };
+                } else {
+                    xAxisOptions.time.displayFormats = { minute: 'HH:mm', hour: 'HH:mm', day: 'dd MMM' };
+                    delete xAxisOptions.time.unit;
+                }
+
+                let yDecimals = 0;
+                if (interval === '15min') yDecimals = 0;
+                else if (interval === 'hour') yDecimals = 1;
+                else if (interval === 'day') yDecimals = 2;
+
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    title: items => items[0]?.raw?.x ? new Date(items[0].raw.x).toLocaleString() : '',
+                                    label: (item) => {
+                                        const raw = item.raw;
+                                        const y = raw.y;
+                                        const players = raw.players || [];
+
+                                        if (!showPlayers || players.length === 0) {
+                                            return `Jugadores: ${y.toFixed(yDecimals)}`;
+                                        }
+
+
+                                        const names = players.map(id => playerNameCache[id] || id);
+
+                                        let formattedNames;
+
+                                        if (players.length > 20) {
+                                            const maxLines = 20;
+                                            const minPerLine = 3;
+
+                                            // 👇 calcular cuantos jugadores por línea
+                                            let perLine = Math.ceil(names.length / maxLines);
+
+                                            // 👇 asegurar mínimo 3 por línea
+                                            perLine = Math.max(minPerLine, perLine);
+
+                                            const chunks = [];
+
+                                            for (let i = 0; i < names.length; i += perLine) {
+                                                const chunk = names.slice(i, i + perLine).join(", ");
+                                                chunks.push(chunk);
+                                            }
+
+                                            // 👇 coma final excepto última línea
+                                            formattedNames = chunks.map((c, i) =>
+                                                i < chunks.length - 1 ? c + "," : c
+                                            );
+
+                                        } else {
+                                            formattedNames = names.map(n => `  ${n}`);
+                                        }
+
+                                        return [
+                                            `Jugadores: ${y.toFixed(yDecimals)}`,
+                                            ...formattedNames
+                                        ];
+                                    }
+                                }
+                            },
+                            legend: { labels: { color: '#c0c4d0', usePointStyle: true, padding: 20 } },
+                            zoom: {
+                                pan: { enabled: true, mode: 'x' },
+                                zoom: { wheel: { enabled: true, modifierKey: 'ctrl' }, pinch: true, drag: true, mode: 'x' }
+                            }
+                        },
+                        scales: {
+                            x: xAxisOptions,
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: '#888', callback: v => v + ' jug.' },
+                                grid: { color: 'rgba(255,255,255,0.05)' }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function switchTab(serverId) {
+                currentTab = serverId;
+                document.querySelectorAll('.chart-tab').forEach(b => b.classList.toggle('active', b.dataset.serverId === serverId));
+                saveSettings();
+                if (finishedLoading) {
+                    renderChart();
+                }
+            }
+
+            async function refreshChartData() {
+                if (!currentTab) return;
+                if (currentTab !== 'all') {
+                    allLogs[currentTab] = await loadHistoryFromStorage(currentTab);
+                    buildPlayerHistory(currentTab);
+                } else {
+                    for (const s of servers) {
+                        allLogs[s.id] = await loadHistoryFromStorage(s.id);
+                        buildPlayerHistory(s.id);
+                    }
+                }
+                // Si el toggle está activo, precachear nombres de nuevo
+                if (showPlayers) await warmupPlayerCache();
+                renderChart();
+            }
+
+            function refreshChart(option) {
+                if (currentTab) {
+                    renderChart(option);
+                }
+            }
+
+            const activeSessions = {};
+            let playerNameCache = {};
+
+            // 🔥 MODIFICADO: Precaching basado en el historial completo en lugar de solo realtimeData
+            async function warmupPlayerCache(onlyRealtime = false, newIds = []) {
+                // Después de loadSettings(), antes de connectWS()
+				loadLocalPlayerNames(); // Precarga el JSON al inicio
+                const idsToResolve = new Set();
+                if (!onlyRealtime) {
+                    // Recopilar todos los IDs de todos los servidores del historial de jugadores
+                    for (const serverId in historicalPlayers) {
+                        const history = historicalPlayers[serverId];
+                        for (const entry of history) {
+                            for (const id of entry.players) {
+                                if (id && /^\d/.test(id.toString()) && id.toString().length >= 16) {
+                                    idsToResolve.add(id);
+                                }
+                            }
+                        }
+                    }
+                }
+                // Agregar IDs nuevos si se proporcionan
+                for (const id of newIds) {
+                    if (id && /^\d/.test(id.toString()) && id.toString().length >= 16) {
+                        idsToResolve.add(id);
+                    }
+                }
+                // También los de tiempo real por si acaso
+                for (const serverId in realtimeData) {
+                    const players = realtimeData[serverId]?.players || [];
+                    for (const p of players) {
+                        const id = p.id || p;
+                        if (id && /^\d/.test(id.toString()) && id.toString().length >= 16) {
+                            idsToResolve.add(id);
+                        }
+                    }
+                }
+
+                const unresolved = Array.from(idsToResolve).filter(id => !playerNameCache[id]);
+                if (unresolved.length === 0) return;
+
+                // Resolver en lotes para no saturar
+                const batchSize = 15;
+                for (let i = 0; i < unresolved.length; i += batchSize) {
+                    const batch = unresolved.slice(i, i + batchSize);
+                    const promises = batch.map(id => resolvePlayerName(id));
+                    const names = await Promise.all(promises);
+                    batch.forEach((id, idx) => { playerNameCache[id] = names[idx]; });
+                }
+            }
+
+            // Variable global para almacenar el mapa de nombres del JSON
+            let localPlayerNames = null;
+
+            let pendingPlayersJsonPromise = null;
+
+            async function loadLocalPlayerNames() {
+              if (localPlayerNames !== null) return localPlayerNames;
+              if (!pendingPlayersJsonPromise) {
+                pendingPlayersJsonPromise = (async () => {
+                  try {
+                    const res = await fetch(`http://${STORAGE_URL}/storage/players.json`);
+                    if (!res.ok) throw new Error();
+                    localPlayerNames = await res.json();
+                  } catch {
+                    localPlayerNames = {};
+                  }
+                  pendingPlayersJsonPromise = null;
+                  return localPlayerNames;
+                })();
+              }
+              return pendingPlayersJsonPromise;
+            }
+
+            // Función resolvePlayerName optimizada
+            async function resolvePlayerName(id) {
+                if (!id || !/^\d/.test(id.toString()) || id.toString().length < 16) return id;
+                if (playerNameCache[id]) return playerNameCache[id];
+
+                // Buscar en tiempo real primero
+                for (const serverId in realtimeData) {
+                    const found = realtimeData[serverId]?.players?.find(p => p.id === id);
+                    if (found?.nickname) {
+                        playerNameCache[id] = found.nickname;
+                        return found.nickname;
+                    }
+                }
+
+                // Buscar en players.json (cargado UNA SOLA VEZ)
+                const localNames = await loadLocalPlayerNames();
+                if (localNames[id] && typeof localNames[id] === 'string') {
+                    playerNameCache[id] = localNames[id];
+                    return localNames[id];
+                }
+
+                // Solo si no existe en ningún lado, usar API
+                try {
+                    const response = await fetch(`/api/player/${encodeURIComponent(id)}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.nickname) {
+                            playerNameCache[id] = data.nickname;
+                            return data.nickname;
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Error fetching player ${id}:`, e);
+                }
+
+                return id;
+            }
+
+            // --- WebSocket ---
+            function connectWS() {
+                const ws = new WebSocket(WS_URL);
+                ws.onopen = () => {
+                    connDot.classList.add('connected');
+                    lastUpdatedEl.textContent = 'Conectado - ' + formatTime(Date.now());
+                };
+                ws.onmessage = async (e) => {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        if (msg.type === 'init' && msg.servers) {
+                            servers = msg.servers;
+                            servers.forEach((s, i) => { if (!s.color) s.color = getColor(i); });
+                            buildUI(servers);
+                            for (const s of servers) {
+                                const hist = await loadHistoryFromStorage(s.id);
+                                allLogs[s.id] = hist;
+                                // 🔥 Construir historial de jugadores tras carga inicial
+                                buildPlayerHistory(s.id);
+                            }
+                            updateCardsFromRealtime();
+                            updateIntervalOptionsByRange();
+                            updateAggregationVisibility();
+
+                            showPlayers = showPlayersToggle.checked;
+                            if (showPlayers) {
+                                await warmupPlayerCache();
+                                // Asegurarse de que el historial de jugadores esté construido para todos los servidores
+                                for (const s of servers) {
+                                    if (!historicalPlayers[s.id] || !historicalPlayers[s.id].length) {
+                                        buildPlayerHistory(s.id);
+                                    }
+                                }
+                            }
+                            //refreshChart('none');
+
+                            renderChart();
+                            finishedLoading = true
+                            renderLeaderboard();
+                        } else if (msg.type === 'update' && Array.isArray(msg.data)) {
+                            let changed = false;
+                            for (const entry of msg.data) {
+                                changed = true;
+                                const now = Date.now();
+                                const prev = realtimeData[entry.serverId]?.players || [];
+                                realtimeData[entry.serverId] = {
+                                    playersTotal: entry.playersTotal,
+                                    players: entry.players || []
+                                };
+                                if (!allLogs[entry.serverId]) allLogs[entry.serverId] = [];
+                                const joined = entry.players.filter(p => !prev.find(o => o.id === p.id));
+                                const left = prev.filter(o => !entry.players.find(p => p.id === o.id));
+                                allLogs[entry.serverId].push({
+                                    time: now,
+                                    playersTotal: entry.playersTotal,
+                                    joined: joined,
+                                    left: left
+                                });
+                                // 🔥 Actualizar también el historial de jugadores en tiempo real
+                                if (joined.length || left.length) {
+                                    const history = historicalPlayers[entry.serverId];
+                                    if (history && history.length) {
+                                        const lastState = new Set(history[history.length - 1].players);
+                                        for (const p of left) lastState.delete(p.id || p);
+                                        for (const p of joined) lastState.add(p.id || p);
+                                        history.push({
+                                            time: now,
+                                            players: Array.from(lastState)
+                                        });
+                                        warmupPlayerCache(true, joined.map(p => p.id)); // Precaching inmediato para nuevos jugadores
+                                    } else {
+                                        // Si no había historial, crear uno inicial
+                                        historicalPlayers[entry.serverId] = [{
+                                            time: now,
+                                            players: entry.players.map(p => p.id)
+                                        }];
+                                    }
+                                }
+                                // Leaderboard sessions
+                                for (const old of prev) {
+                                    if (!entry.players.find(p => p.id === old.id)) {
+                                        const session = activeSessions[old.id];
+                                        if (session) {
+                                            const played = now - session.joinTime;
+                                            if (!playerTimes[old.id]) playerTimes[old.id] = { time: 0, nickname: old.nickname };
+                                            playerTimes[old.id].time += played;
+                                            delete activeSessions[old.id];
+                                        }
+                                    }
+                                }
+                                for (const p of entry.players) {
+                                    if (!activeSessions[p.id]) activeSessions[p.id] = { joinTime: now, nickname: p.nickname };
+                                }
+                            }
+                            if (changed) {
+                                updateCardsFromRealtime();
+                                updateChartRealtime();
+                            }
+                            lastUpdatedEl.textContent = `Conectado - ${formatTime(Date.now())}`;
+                        }
+                    } catch (err) { console.error('WS error:', err); }
+                };
+                ws.onclose = () => {
+                    connDot.classList.remove('connected');
+                    lastUpdatedEl.textContent = 'Desconectado – reintentando…';
+                    setTimeout(connectWS, 5000);
+                };
+                ws.onerror = () => ws.close();
+            }
+
+            rangeSelect.addEventListener('change', () => {
+                updateIntervalOptionsByRange();
+                refreshChart();
+                saveSettings();
+            });
+            intervalSelect.addEventListener('change', () => {
+                updateAggregationVisibility();
+                refreshChart();
+                saveSettings();
+            });
+            aggregationSelect.addEventListener('change', () => {
+                refreshChart();
+                saveSettings();
+            });
+
+            // 🔥 Evento del toggle: activar precarga y refrescar gráfico
+            showPlayersToggle.addEventListener('change', async () => {
+                showPlayers = showPlayersToggle.checked;
+                saveSettings();
+                if (showPlayers) {
+					await warmupPlayerCache();
+                    // Asegurarse de que el historial de jugadores esté construido para todos los servidores
+                    for (const s of servers) {
+                        if (!historicalPlayers[s.id] || !historicalPlayers[s.id].length) {
+                            buildPlayerHistory(s.id);
+                        }
+                    }
+                }
+                //refreshChart('none');
+            });
+
+
+            refreshChartBtn.addEventListener('click', async () => {
+                refreshChartBtn.disabled = true;
+                refreshChartBtn.textContent = 'Actualizando...';
+                await refreshChartData();
+                refreshChartBtn.disabled = false;
+                refreshChartBtn.textContent = '⟳ Actualizar gráfico';
+            });
+            window.addEventListener('resize', () => chart?.resize());
+
+
+            const leaderboardRange = $('leaderboardRange');
+            const leaderboardList = $('leaderboardList');
+
+            // ===== GUARDAR / CARGAR CONFIG =====
+
+            const SETTINGS_KEY = 'decail-stats-settings';
+
+            function saveSettings() {
+                const settings = {
+                    range: rangeSelect.value,
+                    interval: intervalSelect.value,
+                    aggregation: aggregationSelect.value,
+                    showPlayers: showPlayersToggle.checked,
+                    leaderboardRange: leaderboardRange.value,
+                    currentTab: currentTab
+                };
+
+                localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+            }
+
+            function loadSettings() {
+                const raw = localStorage.getItem(SETTINGS_KEY);
+
+                if (!raw) return;
+
+                try {
+                    const settings = JSON.parse(raw);
+
+                    if (settings.range)
+                        rangeSelect.value = settings.range;
+
+                    if (settings.interval)
+                        intervalSelect.value = settings.interval;
+
+                    if (settings.aggregation)
+                        aggregationSelect.value = settings.aggregation;
+
+                    if (typeof settings.showPlayers === 'boolean')
+                        showPlayersToggle.checked = settings.showPlayers;
+
+                    if (settings.leaderboardRange)
+                        leaderboardRange.value = settings.leaderboardRange;
+
+                    if (settings.currentTab)
+                        currentTab = settings.currentTab;
+
+                } catch (e) {
+                    console.error('Error cargando ajustes:', e);
+                }
+            }
+            loadSettings();
+            connectWS();
+
+            function getLeaderboard(range = 'all') {
+                const now = Date.now();
+
+                let cutoff = 0;
+
+                if (range === 'month') {
+                    cutoff = now - 30 * 24 * 3600 * 1000;
+                }
+                else if (range === 'week') {
+                    cutoff = now - 7 * 24 * 3600 * 1000;
+                }
+                else if (range === 'day') {
+                    cutoff = now - 24 * 3600 * 1000;
+                }
+
+                let playerTimes = {};
+                let connectedPlayers = {};
+
+                for (const serverId in allLogs) {
+
+                    const logs = allLogs[serverId]
+                        .filter(log => log.time >= cutoff)
+                        .sort((a, b) => a.time - b.time);
+
+                    for (const log of logs) {
+
+                        const time = log.time;
+
+                        // JOINS
+                        for (const player of (log.joined || [])) {
+
+                            const id = player?.id || player;
+
+                            // ignorar joins duplicados
+                            if (connectedPlayers[id]) continue;
+
+                            connectedPlayers[id] = time;
+                        }
+
+                        let leftPlayers = log.left
+                        if (log.playersTotal === 0) {
+                            leftPlayers = Object.keys(connectedPlayers);
+
+                        }
+
+                        // LEFTS
+                        for (const player of (leftPlayers || [])) {
+
+                            const id = player?.id || player;
+
+                            const start = connectedPlayers[id];
+
+                            // si no existe join, ignorar
+                            if (typeof start !== "number") {
+                                continue;
+                            }
+
+                            const played = time - start;
+
+                            // sesiones corruptas
+                            if (
+                                !Number.isFinite(played) ||
+                                played <= 0 ||
+                                played > 1000 * 60 * 60 * 24 // max 24h
+                            ) {
+                                delete connectedPlayers[id];
+                                continue;
+                            }
+
+                            playerTimes[id] =
+                                (playerTimes[id] || 0) + played;
+
+                            delete connectedPlayers[id];
+                        }
+                    }
+                }
+
+                // IGNORAR sesiones abiertas
+                // NO sumamos connectedPlayers
+
+                return Object.entries(playerTimes)
+                    .sort((a, b) => b[1] - a[1]);
+            }
+
+            function formatDuration(ms) {
+                const totalMinutes = Math.floor(ms / 60000);
+
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+
+                if (hours <= 0) {
+                    return `${minutes} min`;
+                }
+
+                return `${hours}h ${minutes}min`;
+            }
+
+            async function renderLeaderboard() {
+                const range = leaderboardRange.value;
+
+                // Lógica actualizada: 5 minutos si el rango es 'day', sino 30 minutos
+                const MIN_TIME = (range === 'day') ? (5 * 60 * 1000) : (30 * 60 * 1000);
+
+                const data = getLeaderboard(range)
+                    .filter(([name, time]) => time >= MIN_TIME);
+
+                if (!data.length) {
+                    leaderboardList.innerHTML = `
+        <div class="leaderboard-item">
+            No hay datos.
+        </div>
+    `;
+                    return;
+                }
+
+                leaderboardList.innerHTML = await Promise.all(
+                    data.map(async ([name, time], index) => {
+                        const resolvedName = await resolvePlayerName(name);
+                        const playerNameLocal = escapeHtml(resolvedName);
+
+                        return `
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank">#${index + 1}</div>
+                            <div class="leaderboard-name">${playerNameLocal}</div>
+                            <div class="leaderboard-time">${formatDuration(time)}</div>
+                        </div>
+                        `;
+                    })
+                ).then(results => results.join(''));
+            }
+
+
+            leaderboardRange.addEventListener('change', () => {
+                renderLeaderboard();
+                saveSettings();
+            });
+        })();
+    </script>
+</body>
+
+</html>
